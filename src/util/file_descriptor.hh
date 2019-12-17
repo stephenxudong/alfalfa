@@ -94,6 +94,19 @@ public:
     other.fd_ = -1;
   }
 
+  void set_blocking( const bool block )
+  {
+    int flags = SystemCall( "fcntl F_GETFL", fcntl( fd_, F_GETFL ) );
+
+    if ( block ) {
+      flags = flags & ~O_NONBLOCK;
+    } else {
+      flags = flags | O_NONBLOCK;
+    }
+
+    SystemCall( "fcntl F_SETFL", fcntl( fd_, F_SETFL, flags ) );
+  }
+
   std::string::const_iterator write( const std::string::const_iterator & begin,
     const std::string::const_iterator & end )
   {

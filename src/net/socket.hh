@@ -49,7 +49,10 @@ protected:
   /* construct from file descriptor */
   Socket( FileDescriptor && s_fd, const int domain, const int type );
 
-  /* set socket option */
+  /* get and set socket option */
+  template <typename option_type>
+  socklen_t getsockopt( const int level, const int option, option_type & option_value ) const;
+
   template <typename option_type>
   void setsockopt( const int level, const int option, const option_type & option_value );
 
@@ -93,4 +96,42 @@ public:
   void set_timestamps( void );
 };
 
+/* TCP socket */
+class TCPSocket : public Socket
+{
+public:
+  TCPSocket() : Socket( AF_INET, SOCK_DGRAM ) {}
+
+  /* parse packet */
+  struct received_datagram {
+    Address source_address;
+    uint64_t timestamp_us;
+    std::string payload;
+  };
+
+   /* send datagram to connected address */
+  void send( const std::string & payload );
+
+  /* receive datagram, timestamp, and where it came from */
+  received_datagram recv( void );
+
+  /* mark the socket as listening for incoming connections*/
+  void listen( const int backlog = 16);
+
+  /* accept a new incoming connection */
+  TCPSocket accept( void );
+
+  Address original_dest( void ) const;
+
+  /* set the current congestion control algorithm */
+  void set_congestion_control( const std::string & cc);
+
+  std::string get_congestion_control() const;
+
+  /* turn on timestamps on receipt */
+  void set_timestamps( void );
+
+  // TCPInfo get_tcp_info() const;
+
+}
 #endif /* SOCKET_HH */

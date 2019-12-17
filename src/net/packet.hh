@@ -178,6 +178,8 @@ public:
 
   void sendto( UDPSocket & socket, const Address & addr );
 
+  void send( TCPSocket & socket );
+
   /* getters */
   uint16_t connection_id() const { return connection_id_; }
   uint32_t frame_no() const { return frame_no_; }

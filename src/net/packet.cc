@@ -330,3 +330,8 @@ void AckPacket::sendto( UDPSocket & socket, const Address & addr )
 {
   socket.sendto( addr, to_string() );
 }
+
+void AckPacket::send( TCPSocket & socket )
+{
+  socket.send(to_string() );
+}

@@ -32,6 +32,9 @@
 
 using namespace std;
 
+/* max name length of congestion control algorithm */
+static const size_t TCP_CC_NAME_MAX = 16;
+
 /* default constructor for socket of (subclassed) domain and type */
 Socket::Socket( const int domain, const int type )
   : FileDescriptor( SystemCall( "socket", socket( domain, type, 0 ) ) )
@@ -211,6 +214,16 @@ void UDPSocket::send( const string & payload )
   register_write();
 }
 
+/* get socket option */
+template <typename option_type>
+socklen_t Socket::getsockopt( const int level, const int option, option_type & option_value ) const
+{
+    socklen_t optlen = sizeof( option_value );
+    SystemCall( "getsockopt", ::getsockopt( fd_num(), level, option,
+                                                 &option_value, &optlen ) );
+    return optlen;
+}
+
 /* set socket option */
 template <typename option_type>
 void Socket::setsockopt( const int level, const int option, const option_type & option_value )
@@ -230,3 +243,128 @@ void UDPSocket::set_timestamps( void )
 {
   setsockopt( SOL_SOCKET, SO_TIMESTAMPNS, int( true ) );
 }
+
+void TCPSocket::listen( const int backlog )
+{
+  SystemCall("listen", ::listen( fd_num(), nullptr, nullptr ) );
+}
+
+void TCPSocket::accept( void )
+{
+  register_read()
+  return TCPSocket( FileDescriptor( SystemCall(
+      "accept", ::accept( fd_num(), nullptr, nullptr ) ) ) );
+}
+
+Address TCPSocket::original_dest( void ) const
+{
+    Address::raw dstaddr;
+    socklen_t len = getsockopt( SOL_IP, SO_ORIGINAL_DST, dstaddr );
+
+    return Address( dstaddr, len );
+}
+
+void TCPSocket::set_congestion_control( const string & cc )
+{
+    char optval[ TCP_CC_NAME_MAX ];
+    strncpy( optval, cc.c_str(), TCP_CC_NAME_MAX );
+
+    try {
+      setsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+    } catch (const exception & e) {
+      /* rethrow the exception with better error messages */
+      print_exception("set_congestion_control", e);
+      throw runtime_error("unavailable congestion control: " + cc);
+    }
+}
+
+string TCPSocket::get_congestion_control() const
+{
+    char optval[ TCP_CC_NAME_MAX ];
+    getsockopt( IPPROTO_TCP, TCP_CONGESTION, optval );
+    return optval;
+}
+
+/* send datagram to connected address */
+void TCPSocket::send( const string & payload )
+{
+  const ssize_t bytes_sent =
+    SystemCall( "send", ::send( fd_num(),
+				payload.data(),
+				payload.size(),
+				0 ) );
+
+  if ( size_t( bytes_sent ) != payload.size() ) {
+    throw runtime_error( "datagram payload too big for send()" );
+  }
+
+  register_write();
+}
+
+/* receive datagram and where it came from */
+TCPSocket::received_datagram TCPSocket::recv( void )
+{
+  static const ssize_t RECEIVE_MTU = 65536;
+
+  /* receive source address, timestamp and payload */
+  Address::raw datagram_source_address;
+  msghdr header; zero( header );
+  iovec msg_iovec; zero( msg_iovec );
+
+  char msg_payload[ RECEIVE_MTU ];
+  char msg_control[ RECEIVE_MTU ];
+
+  /* prepare to get the source address */
+  header.msg_name = &datagram_source_address;
+  header.msg_namelen = sizeof( datagram_source_address );
+
+  /* prepare to get the payload */
+  msg_iovec.iov_base = msg_payload;
+  msg_iovec.iov_len = sizeof( msg_payload );
+  header.msg_iov = &msg_iovec;
+  header.msg_iovlen = 1;
+
+  /* prepare to get the timestamp */
+  header.msg_control = msg_control;
+  header.msg_controllen = sizeof( msg_control );
+
+  /* call recvmsg */
+  ssize_t recv_len = SystemCall( "recvmsg",
+				 recvmsg( fd_num(), &header, 0 ) );
+
+  /* make sure we got the whole datagram */
+  if ( header.msg_flags & MSG_TRUNC ) {
+    throw runtime_error( "recvfrom (oversized datagram)" );
+  } else if ( header.msg_flags ) {
+    throw runtime_error( "recvfrom (unhandled flag)" );
+  }
+
+  uint64_t timestamp_us = -1;
+
+  /* find the timestamp header (if there is one) */
+  cmsghdr *ts_hdr = CMSG_FIRSTHDR( &header );
+  while ( ts_hdr ) {
+    if ( ts_hdr->cmsg_level == SOL_SOCKET
+	 and ts_hdr->cmsg_type == SO_TIMESTAMPNS ) {
+      const timespec * const kernel_time = reinterpret_cast<timespec *>( CMSG_DATA( ts_hdr ) );
+      timestamp_us = timestamp_us_raw( *kernel_time );
+    }
+    ts_hdr = CMSG_NXTHDR( &header, ts_hdr );
+  }
+
+  received_datagram ret = { Address( datagram_source_address,
+                                     header.msg_namelen ),
+                            timestamp_us,
+                            string( msg_payload, recv_len ) };
+
+  register_read();
+
+  return ret;
+}
+
+/* turn on timestamps on receipt */
+void TCPSocket::set_timestamps( void )
+{
+  setsockopt( SOL_SOCKET, SO_TIMESTAMPNS, int( true ) );
+}
+
