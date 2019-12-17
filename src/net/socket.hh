@@ -75,7 +75,7 @@ public:
 class UDPSocket : public Socket
 {
 public:
-  UDPSocket() : Socket( AF_INET6, SOCK_DGRAM ) {}
+  UDPSocket() : Socket( AF_INET, SOCK_DGRAM ) {}
 
   struct received_datagram {
     Address source_address;
@@ -99,8 +99,11 @@ public:
 /* TCP socket */
 class TCPSocket : public Socket
 {
+protected:
+  /* constructor used by accept() and SecureSocket() */
+  TCPSocket( FileDescriptor && fd ) : Socket( std::move( fd ), AF_INET, SOCK_STREAM ) {}
 public:
-  TCPSocket() : Socket( AF_INET, SOCK_DGRAM ) {}
+  TCPSocket() : Socket( AF_INET, SOCK_STREAM ) {}
 
   /* parse packet */
   struct received_datagram {
@@ -134,5 +137,5 @@ public:
 
   // TCPInfo get_tcp_info() const;
 
-}
+};
 #endif /* SOCKET_HH */

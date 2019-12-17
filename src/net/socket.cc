@@ -27,6 +27,10 @@
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <linux/tcp.h>
+#include <linux/netfilter_ipv4.h>
 #include "socket.hh"
 #include "exception.hh"
 
@@ -34,6 +38,7 @@ using namespace std;
 
 /* max name length of congestion control algorithm */
 static const size_t TCP_CC_NAME_MAX = 16;
+
 
 /* default constructor for socket of (subclassed) domain and type */
 Socket::Socket( const int domain, const int type )
@@ -47,21 +52,17 @@ Socket::Socket( FileDescriptor && fd, const int domain, const int type )
   int actual_value;
   socklen_t len;
 
-  /* verify domain */
-  len = sizeof( actual_value );
-  SystemCall( "getsockopt",
-	      getsockopt( fd_num(), SOL_SOCKET, SO_DOMAIN, &actual_value, &len ) );
-  if ( (len != sizeof( actual_value )) or (actual_value != domain) ) {
-    throw runtime_error( "socket domain mismatch" );
-  }
+   /* verify domain */
+    len = getsockopt( SOL_SOCKET, SO_DOMAIN, actual_value );
+    if ( (len != sizeof( actual_value )) or (actual_value != domain) ) {
+        throw runtime_error( "socket domain mismatch" );
+    }
 
-  /* verify type */
-  len = sizeof( actual_value );
-  SystemCall( "getsockopt",
-	      getsockopt( fd_num(), SOL_SOCKET, SO_TYPE, &actual_value, &len ) );
-  if ( (len != sizeof( actual_value )) or (actual_value != type) ) {
-    throw runtime_error( "socket type mismatch" );
-  }
+    /* verify type */
+    len = getsockopt( SOL_SOCKET, SO_TYPE, actual_value );
+    if ( (len != sizeof( actual_value )) or (actual_value != type) ) {
+        throw runtime_error( "socket type mismatch" );
+    }
 }
 
 /* get the local or peer address the socket is connected to */
@@ -214,24 +215,6 @@ void UDPSocket::send( const string & payload )
   register_write();
 }
 
-/* get socket option */
-template <typename option_type>
-socklen_t Socket::getsockopt( const int level, const int option, option_type & option_value ) const
-{
-    socklen_t optlen = sizeof( option_value );
-    SystemCall( "getsockopt", ::getsockopt( fd_num(), level, option,
-                                                 &option_value, &optlen ) );
-    return optlen;
-}
-
-/* set socket option */
-template <typename option_type>
-void Socket::setsockopt( const int level, const int option, const option_type & option_value )
-{
-  SystemCall( "setsockopt", ::setsockopt( fd_num(), level, option,
-					  &option_value, sizeof( option_value ) ) );
-}
-
 /* allow local address to be reused sooner, at the cost of some robustness */
 void Socket::set_reuseaddr( void )
 {
@@ -246,12 +229,12 @@ void UDPSocket::set_timestamps( void )
 
 void TCPSocket::listen( const int backlog )
 {
-  SystemCall("listen", ::listen( fd_num(), nullptr, nullptr ) );
+  SystemCall("listen", ::listen( fd_num(), backlog ) );
 }
 
-void TCPSocket::accept( void )
+TCPSocket TCPSocket::accept( void )
 {
-  register_read()
+  register_read();
   return TCPSocket( FileDescriptor( SystemCall(
       "accept", ::accept( fd_num(), nullptr, nullptr ) ) ) );
 }
@@ -366,3 +349,20 @@ void TCPSocket::set_timestamps( void )
   setsockopt( SOL_SOCKET, SO_TIMESTAMPNS, int( true ) );
 }
 
+/* get socket option */
+template <typename option_type>
+socklen_t Socket::getsockopt( const int level, const int option, option_type & option_value ) const
+{
+    socklen_t optlen = sizeof( option_value );
+    SystemCall( "getsockopt", ::getsockopt( fd_num(), level, option,
+                                                 &option_value, &optlen ) );
+    return optlen;
+}
+
+/* set socket option */
+template <typename option_type>
+void Socket::setsockopt( const int level, const int option, const option_type & option_value )
+{
+  SystemCall( "setsockopt", ::setsockopt( fd_num(), level, option,
+					  &option_value, sizeof( option_value ) ) );
+}

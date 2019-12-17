@@ -134,10 +134,10 @@ void enqueue_frame( FramePlayer & player, const Chunk & frame )
   );
 }
 
-void init_server_socket(TCPSocket& socket, std::string& congestion_control )
+void init_server_socket(TCPSocket& socket, const std::string& congestion_control )
 {
   socket.set_blocking(false);
-  socket.set_reuseaddr()
+  socket.set_reuseaddr();
   socket.set_congestion_control(congestion_control);
   socket.listen();
 }
@@ -192,9 +192,11 @@ int main( int argc, char *argv[] )
 
   /* construct Socket for incoming  datagrams */
   TCPSocket socket;
-  socket.bind( Address( "0", argv[ optind ] ) );
-  /* Listen*/
-  init_server_socket(socket, "bbr");
+  cout << "port is " << argv[ optind ] << endl;
+
+  socket.bind( Address( "0.0.0.0", argv[ optind ] ) );
+  /* Listen */
+  init_server_socket(socket, "cubic");
 
   /* construct FramePlayer */
   FramePlayer player( paranoid::stoul( argv[ optind + 1 ] ), paranoid::stoul( argv[ optind + 2 ] ) );
@@ -221,17 +223,17 @@ int main( int argc, char *argv[] )
 
   Poller poller;
   poller.add_action( Poller::Action( socket, Direction::In,
-    [&]()
+    [&]() -> ResultType
     {
       /* wait for next peer socket */
       auto client = socket.accept();
-
-      /* we are interested in the clinet socket*/
+      cout<<"connceted" <<endl;
+       /* we are interested in the clinet socket*/
       poller.add_action( Poller::Action( client, Direction::In,
-        [&]()
+        [&]() -> ResultType
         {
           /* wait for next UDP datagram */
-          const string new_fragment = client.read();
+          const auto new_fragment = client.recv();
            /* parse into Packet */
           const Packet packet { new_fragment.payload };
 
@@ -327,7 +329,7 @@ int main( int argc, char *argv[] )
           // explictly inform the sender
           AckPacket( connection_id, packet.frame_no(), packet.fragment_no(),
                     avg_delay.int_value(), current_state,
-                    complete_states ).send( socket );
+                    complete_states ).send( client );
 
           auto now = system_clock::now();
 
@@ -339,11 +341,14 @@ int main( int argc, char *argv[] )
             next_mem_usage_report = now + 5s;
           }
           return ResultType::Continue;
-      },
-      [&]() { return not socket.eof(); } );
-      }
-  ));
-
+        })
+      );
+      // won't arrive here
+      assert(false);
+      return ResultType::Continue;
+    },
+    [&]() { return not socket.eof(); } )
+  );
 
   /* handle events */
   while ( true ) {

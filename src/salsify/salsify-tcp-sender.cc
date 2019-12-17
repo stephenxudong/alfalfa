@@ -259,6 +259,7 @@ int main( int argc, char *argv[] )
   /* construct Socket for outgoing datagrams */
   TCPSocket socket;
   socket.connect( Address( argv[ optind ], argv[ optind + 1 ] ) );
+  cout<<"connceted" <<endl;
   socket.set_timestamps();
 
   /* get connection_id */
@@ -280,7 +281,7 @@ int main( int argc, char *argv[] )
   }
 
   /* camera device */
-  Camera camera { 1280, 720, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
+  Camera camera { 640, 480, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
 
   /* construct the encoder */
   Encoder base_encoder { camera.display_width(), camera.display_height(),
@@ -612,7 +613,8 @@ int main( int argc, char *argv[] )
                            output.frame };
       /* enqueue the packets to be sent */
       /* send 5x faster than packets are being received */
-      const unsigned int inter_send_delay = min( 2000u, max( 500u, avg_delay / 5 ) );
+      const unsigned int __attribute__((unused)) inter_send_delay = min( 2000u, max( 500u, avg_delay / 5 ) );
+
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
         //   pacer.push( packet.to_string(), inter_send_delay );
@@ -700,8 +702,10 @@ int main( int argc, char *argv[] )
   encode_start_pipe.first.write( "1" );
 
   /* handle events */
+  const int time_out_ms = 3000;
   while ( true ) {
-    const auto poll_result = poller.poll( pacer.ms_until_due() );
+    // when queue
+    const auto poll_result = poller.poll(-1);
     if ( poll_result.result == Poller::Result::Type::Exit ) {
       if ( poll_result.exit_status ) {
         cerr << "Connection error." << endl;

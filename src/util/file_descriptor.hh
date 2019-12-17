@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <cstdio>
+#include <fcntl.h>
 #include <cassert>
 
 #include "exception.hh"
