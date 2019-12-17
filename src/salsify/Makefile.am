@@ -5,19 +5,28 @@ BASE_LDADD = ../input/libalfalfainput.a ../decoder/libalfalfadecoder.a ../util/l
 
 VP8PLAY_BUILD :=
 if BUILDVP8PLAY
-VP8PLAY_BUILD += salsify-receiver real-webcam display-jpeg
+VP8PLAY_BUILD += salsify-receiver salsify-tcp-receiver real-webcam display-jpeg
 endif
 
-bin_PROGRAMS = salsify-sender fake-webcam $(VP8PLAY_BUILD)
+bin_PROGRAMS = salsify-sender salsify-tcp-sender fake-webcam $(VP8PLAY_BUILD)
 
 salsify_sender_SOURCES = salsify-sender.cc
 salsify_sender_LDADD = ../net/libnet.a ../encoder/libalfalfaencoder.a $(BASE_LDADD)
 salsify_sender_LDFLAGS = -pthread
 
+salsify_tcp_sender_SOURCES = salsify-tcp-sender.cc
+salsify_tcp_sender_LDADD = ../net/libnet.a ../encoder/libalfalfaencoder.a $(BASE_LDADD)
+salsify_tcp_sender_LDFLAGS = -pthread
+
 salsify_receiver_SOURCES = salsify-receiver.cc
 salsify_receiver_CPPFLAGS = $(AM_CPPFLAGS) $(GLU_CFLAGS) $(GLEW_CFLAGS) $(GLFW3_CFLAGS)
 salsify_receiver_LDADD = ../display/libalfalfadisplay.a ../net/libnet.a $(BASE_LDADD) $(GLU_LIBS) $(GLEW_LIBS) $(GLFW3_LIBS)
 salsify_receiver_LDFLAGS = -pthread
+
+salsify_tcp_receiver_SOURCES = salsify-tcp-receiver.cc
+salsify_tcp_receiver_CPPFLAGS = $(AM_CPPFLAGS) $(GLU_CFLAGS) $(GLEW_CFLAGS) $(GLFW3_CFLAGS)
+salsify_tcp_receiver_LDADD = ../display/libalfalfadisplay.a ../net/libnet.a $(BASE_LDADD) $(GLU_LIBS) $(GLEW_LIBS) $(GLFW3_LIBS)
+salsify_tcp_receiver_LDFLAGS = -pthread
 
 fake_webcam_SOURCES = fake-webcam.cc
 fake_webcam_LDADD = ../encoder/libalfalfaencoder.a $(BASE_LDADD)

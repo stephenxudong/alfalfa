@@ -46,6 +46,8 @@ Makefile.in
 
 /src/salsify/salsify-sender
 /src/salsify/salsify-receiver
+/src/salsify/salsify-tcp-sender
+/src/salsify/salsify-tcp-receiver
 /src/salsify/fake-webcam
 /src/salsify/real-webcam
 /src/salsify/display-jpeg
@@ -65,3 +67,4 @@ Makefile.in
 /src/tests/convergence_test/
 
 src/.vscode/
+.vscode/
