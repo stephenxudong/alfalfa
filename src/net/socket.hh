@@ -104,7 +104,8 @@ public:
 
   /* parse packet */
   struct received_datagram {
-    Address source_address;
+    /* in tcp, we don't care about the peer's address*/
+    // Address source_address;
     uint64_t timestamp_us;
     std::string payload;
   };
