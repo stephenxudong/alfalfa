@@ -185,7 +185,7 @@ public:
       throw std::runtime_error( "read() called after eof was set" );
     }
     // cerr << "Call Read, fd: " << fd_ << " buffer: " << buffer << " max_length: "
-        << std::min( BUFFER_SIZE, limit ) << endl;
+        // << std::min( BUFFER_SIZE, limit ) << endl;
     ssize_t bytes_read = SystemCall( "read",
       ::read( fd_, buffer, std::min( BUFFER_SIZE, limit ) ) );
 
