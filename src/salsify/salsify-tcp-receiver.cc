@@ -139,7 +139,8 @@ void init_server_socket(TCPSocket& socket, const std::string& congestion_control
   socket.set_blocking(false);
   socket.set_reuseaddr();
   socket.set_congestion_control(congestion_control);
-  socket.listen();
+  cerr << "server listening" << endl;
+  socket.listen(1);
 }
 
 int main( int argc, char *argv[] )
@@ -223,16 +224,22 @@ int main( int argc, char *argv[] )
 
   Poller poller;
   poller.add_action( Poller::Action( socket, Direction::In,
-    [&]() -> ResultType
+    [&]()
     {
       /* wait for next peer socket */
       auto client = socket.accept();
-      cout<<"connceted" <<endl;
+
+      //POLL ?
+      // client.set_blocking(false);
+      cerr << "connceted" <<endl;
+      auto client_addr = client.peer_address();
+      cerr << "Peer is " << client_addr.ip() << ":" << client_addr.port() << endl;
        /* we are interested in the clinet socket*/
       poller.add_action( Poller::Action( client, Direction::In,
-        [&]() -> ResultType
+        [&]()
         {
-          /* wait for next UDP datagram */
+          cerr << "read video from sender" << endl;
+          /* wait for next TCP message */
           const auto new_fragment = client.recv();
            /* parse into Packet */
           const Packet packet { new_fragment.payload };
@@ -326,6 +333,7 @@ int main( int argc, char *argv[] )
 
           avg_delay.add( new_fragment.timestamp_us, packet.time_since_last() );
 
+           cerr << "send videoACK to sender" << endl;
           // explictly inform the sender
           AckPacket( connection_id, packet.frame_no(), packet.fragment_no(),
                     avg_delay.int_value(), current_state,
@@ -343,11 +351,9 @@ int main( int argc, char *argv[] )
           return ResultType::Continue;
         })
       );
-      // won't arrive here
-      assert(false);
       return ResultType::Continue;
-    },
-    [&]() { return not socket.eof(); } )
+    } ,[&]() { return not socket.eof(); }
+    )
   );
 
   /* handle events */

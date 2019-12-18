@@ -261,6 +261,7 @@ int main( int argc, char *argv[] )
   socket.connect( Address( argv[ optind ], argv[ optind + 1 ] ) );
   cout<<"connceted" <<endl;
   socket.set_timestamps();
+  // socket.set_blocking(false);
 
   /* get connection_id */
   const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );
@@ -341,9 +342,12 @@ int main( int argc, char *argv[] )
   /* fetch frames from webcam */
   poller.add_action( Poller::Action( encode_start_pipe.second, Direction::In,
     [&]() -> Result {
+      cerr << "to fetch video frame" << endl;
       encode_start_pipe.second.read();
 
       last_raster = camera.get_next_frame();
+
+      cerr << "Fetch frame from webcam" << endl;
 
       if ( not last_raster.initialized() ) {
         return { ResultType::Exit, EXIT_FAILURE };
@@ -359,6 +363,7 @@ int main( int argc, char *argv[] )
            receiver_last_acked_state.get() != initial_state and
            encoders.count( receiver_last_acked_state.get() ) ) {
         // cleaning up
+        cerr << "Clean Up" << endl;
         auto it = encoder_states.begin();
 
         while ( it != encoder_states.end() ) {
@@ -438,6 +443,8 @@ int main( int argc, char *argv[] )
           selected_source_hash = receiver_assumed_state.get();
         }
       }
+
+      cerr << "decided encoder, hash is " << selected_source_hash << endl;
       /* end of encoder selection logic */
       const Encoder & encoder = encoders.at( selected_source_hash );
 
@@ -451,6 +458,7 @@ int main( int argc, char *argv[] )
         };
 
       if ( operation_mode == OperationMode::Conventional ) {
+        cerr << "Mode: Conventional, start configuring encoding jobs" << endl;
         /* is it time to update the quality setting? */
         if ( next_cc_update <= system_clock::now() ) {
           const size_t old_quantizer = cc_quantizer;
@@ -484,10 +492,12 @@ int main( int argc, char *argv[] )
           next_cc_update = system_clock::now() + cc_update_interval;
         }
 
+        cerr << "Added encoder job" << endl;
         encode_jobs.emplace_back( "frame", raster, encoder, CONSTANT_QUANTIZER,
                                   cc_quantizer, 0  );
       }
       else {
+        cerr << "Directly set encoder jobs" << endl;
         /* try various quantizers */
         encode_jobs.emplace_back( "improve", raster, encoder, CONSTANT_QUANTIZER,
                                   increment_quantizer( last_quantizer, -17 ), 0 );
@@ -525,6 +535,7 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( encode_end_pipe.second, Direction::In,
     [&]()
     {
+      cerr << "all encode job finished !" << endl;
       /* whatever happens, encode_jobs will be empty after this block is done. */
       auto _ = finally(
         [&]()
@@ -618,6 +629,7 @@ int main( int argc, char *argv[] )
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
         //   pacer.push( packet.to_string(), inter_send_delay );
+        cerr << "Push encoded frame to queue" << endl;
         queue_.emplace_back( packet.to_string() );
       }
 
@@ -662,7 +674,20 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( socket, Direction::In,
     [&]()
     {
+      cerr << "recv packets" << endl;
+
+      // we only need the payload
       auto packet = socket.recv();
+
+      /* why would this callback be called ?*/
+      if (packet.payload == ""){
+        cerr << "Warning: " << "recv empty data" << endl;
+        socket.noeof();
+        return ResultType::Continue;
+      }
+
+      cerr << "ack_is" << packet.payload << endl;
+
       AckPacket ack( packet.payload );
 
       if ( ack.connection_id() != connection_id ) {
@@ -682,16 +707,18 @@ int main( int argc, char *argv[] )
       avg_delay = ack.avg_delay();
       receiver_last_acked_state.reset( ack.current_state() );
       receiver_complete_states = move( ack.complete_states() );
-
       return ResultType::Continue;
-    } )
+
+    })
   );
 
   /* outgoing packet ready to leave the buffer */
   poller.add_action( Poller::Action( socket, Direction::Out, [&]() {
         /* pop packet from buffer */
+        cerr << "can send frame ? " << endl;
         while ( not queue_.empty() ) {
           socket.send( queue_.front() );
+          cerr << "Send frame" << endl;
           queue_.pop_front();
         }
         return ResultType::Continue;
@@ -702,7 +729,7 @@ int main( int argc, char *argv[] )
   encode_start_pipe.first.write( "1" );
 
   /* handle events */
-  const int time_out_ms = 3000;
+  // const int time_out_ms = 3000;
   while ( true ) {
     // when queue
     const auto poll_result = poller.poll(-1);

@@ -136,6 +136,8 @@ public:
   void set_timestamps( void );
 
   // TCPInfo get_tcp_info() const;
+  uint64_t timestamp_us();
+
 
 };
 #endif /* SOCKET_HH */

@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <string>
 #include "poller.hh"
 #include "exception.hh"
 
@@ -58,6 +59,7 @@ Poller::Result Poller::poll( const int & timeout_ms )
         /* don't poll in on fds that have had EOF */
         if ( actions_.at( i ).direction == Direction::In
              and actions_.at( i ).fd.eof() ) {
+            cerr << "fd: " << pollfds_.at(i).fd << " eof!" << endl;
             pollfds_.at( i ).events = 0;
         }
     }
@@ -65,15 +67,29 @@ Poller::Result Poller::poll( const int & timeout_ms )
     /* Quit if no member in pollfds_ has a non-zero direction */
     if ( not accumulate( pollfds_.begin(), pollfds_.end(), false,
                          [] ( bool acc, pollfd x ) { return acc or x.events; } ) ) {
+        cerr << " No member has direction" << endl;
         return Result::Type::Exit;
     }
 
     if ( 0 == SystemCall( "poll", ::poll( &pollfds_[ 0 ], pollfds_.size(), timeout_ms ) ) ) {
+        cerr << " POLL Timeout !" << endl;
         return Result::Type::Timeout;
     }
 
     for ( unsigned int i = 0; i < pollfds_.size(); i++ ) {
         if ( pollfds_[ i ].revents & (POLLERR | POLLHUP | POLLNVAL) ) {
+            std::string stat;
+            if( pollfds_[ i ].revents & POLLERR ){
+                stat = "POLLERR";
+            }
+            else if( pollfds_[ i ].revents & POLLHUP ){
+                stat = "POLLHUP";
+            }
+            else if( pollfds_[ i ].revents & POLLNVAL ){
+                // fd doesn't point to an open file
+                stat = "POLLNVAL";
+            }
+            cerr << "fd " << pollfds_.at(i).fd << stat.c_str() << "!" << endl;
             return { Result::Type::Exit, EXIT_FAILURE };
         }
 
@@ -81,6 +97,7 @@ Poller::Result Poller::poll( const int & timeout_ms )
             /* we only want to call callback if revents includes
                the event we asked for */
             const auto count_before = actions_.at( i ).service_count();
+            cerr << "fd " << pollfds_.at(i).fd << " ready!" << endl;
             auto result = actions_.at( i ).callback();
 
             switch ( result.result ) {

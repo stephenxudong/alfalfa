@@ -32,6 +32,7 @@
 #include <linux/tcp.h>
 #include <linux/netfilter_ipv4.h>
 #include "socket.hh"
+#include <ctime>
 #include "exception.hh"
 
 using namespace std;
@@ -235,8 +236,9 @@ void TCPSocket::listen( const int backlog )
 TCPSocket TCPSocket::accept( void )
 {
   register_read();
-  return TCPSocket( FileDescriptor( SystemCall(
-      "accept", ::accept( fd_num(), nullptr, nullptr ) ) ) );
+  int client_fd = SystemCall( "accept", ::accept( fd_num(), nullptr, nullptr ) );
+  cerr << "accepted, fd is " << client_fd << endl;
+  return TCPSocket( FileDescriptor( client_fd ) ) ;
 }
 
 Address TCPSocket::original_dest( void ) const
@@ -289,57 +291,14 @@ TCPSocket::received_datagram TCPSocket::recv( void )
 {
   static const ssize_t RECEIVE_MTU = 65536;
 
-  /* receive source address, timestamp and payload */
-  Address::raw datagram_source_address;
-  msghdr header; zero( header );
-  iovec msg_iovec; zero( msg_iovec );
+  // (data, byte_read)
+  auto raw_data = read(RECEIVE_MTU);
 
-  char msg_payload[ RECEIVE_MTU ];
-  char msg_control[ RECEIVE_MTU ];
+  uint64_t time_us = timestamp_us();
 
-  /* prepare to get the source address */
-  header.msg_name = &datagram_source_address;
-  header.msg_namelen = sizeof( datagram_source_address );
+  received_datagram ret = { time_us, raw_data };
 
-  /* prepare to get the payload */
-  msg_iovec.iov_base = msg_payload;
-  msg_iovec.iov_len = sizeof( msg_payload );
-  header.msg_iov = &msg_iovec;
-  header.msg_iovlen = 1;
-
-  /* prepare to get the timestamp */
-  header.msg_control = msg_control;
-  header.msg_controllen = sizeof( msg_control );
-
-  /* call recvmsg */
-  ssize_t recv_len = SystemCall( "recvmsg",
-				 recvmsg( fd_num(), &header, 0 ) );
-
-  /* make sure we got the whole datagram */
-  if ( header.msg_flags & MSG_TRUNC ) {
-    throw runtime_error( "recvfrom (oversized datagram)" );
-  } else if ( header.msg_flags ) {
-    throw runtime_error( "recvfrom (unhandled flag)" );
-  }
-
-  uint64_t timestamp_us = -1;
-
-  /* find the timestamp header (if there is one) */
-  cmsghdr *ts_hdr = CMSG_FIRSTHDR( &header );
-  while ( ts_hdr ) {
-    if ( ts_hdr->cmsg_level == SOL_SOCKET
-	 and ts_hdr->cmsg_type == SO_TIMESTAMPNS ) {
-      const timespec * const kernel_time = reinterpret_cast<timespec *>( CMSG_DATA( ts_hdr ) );
-      timestamp_us = timestamp_us_raw( *kernel_time );
-    }
-    ts_hdr = CMSG_NXTHDR( &header, ts_hdr );
-  }
-
-  received_datagram ret = { timestamp_us,
-                            string( msg_payload, recv_len ) };
-
-  register_read();
-
+  // register_read();
   return ret;
 }
 
@@ -347,6 +306,13 @@ TCPSocket::received_datagram TCPSocket::recv( void )
 void TCPSocket::set_timestamps( void )
 {
   setsockopt( SOL_SOCKET, SO_TIMESTAMPNS, int( true ) );
+}
+
+uint64_t TCPSocket::timestamp_us()
+{
+  timespec ts;
+  SystemCall("clock_gettime", clock_gettime(CLOCK_REALTIME, &ts));
+  return (ts.tv_sec * BILLION + ts.tv_nsec)/1000;
 }
 
 /* get socket option */

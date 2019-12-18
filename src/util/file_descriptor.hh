@@ -67,6 +67,12 @@ public:
     }
   }
 
+  //unsafe
+  void noeof( void )
+  {
+    eof_ = false;
+  }
+
   uint64_t size( void ) const
   {
     struct stat file_info;
