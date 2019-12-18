@@ -38,6 +38,7 @@
 #include <thread>
 #include <condition_variable>
 #include <future>
+#include <map>
 
 #include "socket.hh"
 #include "packet.hh"
@@ -51,6 +52,12 @@
 using namespace std;
 using namespace std::chrono;
 using namespace PollerShortNames;
+
+struct Connection
+{
+  TCPSocket socket;
+  Connection(TCPSocket && sock) : socket(move(sock)){};
+};
 
 class AverageInterPacketDelay
 {
@@ -223,24 +230,30 @@ int main( int argc, char *argv[] )
   system_clock::time_point next_mem_usage_report = system_clock::now();
 
   Poller poller;
+
+  std::map<uint64_t, Connection> connections_ {};
+
+  static uint64_t id = 0;
+
   poller.add_action( Poller::Action( socket, Direction::In,
     [&]()
     {
       /* wait for next peer socket */
       auto client = socket.accept();
-
-      //POLL ?
-      // client.set_blocking(false);
       cerr << "connceted" <<endl;
       auto client_addr = client.peer_address();
       cerr << "Peer is " << client_addr.ip() << ":" << client_addr.port() << endl;
+
+      const uint64_t conn_id = id++;
+      connections_.emplace(conn_id, move(client));
+      Connection & conn = connections_.at(conn_id);
        /* we are interested in the clinet socket*/
-      poller.add_action( Poller::Action( client, Direction::In,
-        [&]()
+      poller.add_action( Poller::Action( conn.socket, Direction::In,
+        [&, conn_id]()
         {
-          cerr << "read video from sender" << endl;
+          cerr << "read frames from sender" << endl;
           /* wait for next TCP message */
-          const auto new_fragment = client.recv();
+          const auto new_fragment = conn.socket.recv();
            /* parse into Packet */
           const Packet packet { new_fragment.payload };
 
@@ -337,7 +350,7 @@ int main( int argc, char *argv[] )
           // explictly inform the sender
           AckPacket( connection_id, packet.frame_no(), packet.fragment_no(),
                     avg_delay.int_value(), current_state,
-                    complete_states ).send( client );
+                    complete_states ).send( conn.socket );
 
           auto now = system_clock::now();
 

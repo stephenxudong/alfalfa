@@ -89,7 +89,7 @@ Poller::Result Poller::poll( const int & timeout_ms )
                 // fd doesn't point to an open file
                 stat = "POLLNVAL";
             }
-            cerr << "fd " << pollfds_.at(i).fd << stat.c_str() << "!" << endl;
+            cerr << "fd " << pollfds_.at(i).fd << " " << stat.c_str() << "!" << endl;
             return { Result::Type::Exit, EXIT_FAILURE };
         }
 
@@ -97,7 +97,7 @@ Poller::Result Poller::poll( const int & timeout_ms )
             /* we only want to call callback if revents includes
                the event we asked for */
             const auto count_before = actions_.at( i ).service_count();
-            cerr << "fd " << pollfds_.at(i).fd << " ready!" << endl;
+            // cerr << "fd " << pollfds_.at(i).fd << " ready!" << endl;
             auto result = actions_.at( i ).callback();
 
             switch ( result.result ) {

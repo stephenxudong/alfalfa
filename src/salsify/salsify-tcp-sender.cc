@@ -342,12 +342,10 @@ int main( int argc, char *argv[] )
   /* fetch frames from webcam */
   poller.add_action( Poller::Action( encode_start_pipe.second, Direction::In,
     [&]() -> Result {
-      cerr << "to fetch video frame" << endl;
+      cerr << "Fetch frame from webcam" << endl;
       encode_start_pipe.second.read();
 
       last_raster = camera.get_next_frame();
-
-      cerr << "Fetch frame from webcam" << endl;
 
       if ( not last_raster.initialized() ) {
         return { ResultType::Exit, EXIT_FAILURE };
@@ -444,7 +442,7 @@ int main( int argc, char *argv[] )
         }
       }
 
-      cerr << "decided encoder, hash is " << selected_source_hash << endl;
+      cerr << "Decided encoder, hash is " << selected_source_hash << endl;
       /* end of encoder selection logic */
       const Encoder & encoder = encoders.at( selected_source_hash );
 
@@ -492,7 +490,6 @@ int main( int argc, char *argv[] )
           next_cc_update = system_clock::now() + cc_update_interval;
         }
 
-        cerr << "Added encoder job" << endl;
         encode_jobs.emplace_back( "frame", raster, encoder, CONSTANT_QUANTIZER,
                                   cc_quantizer, 0  );
       }
@@ -626,10 +623,10 @@ int main( int argc, char *argv[] )
       /* send 5x faster than packets are being received */
       const unsigned int __attribute__((unused)) inter_send_delay = min( 2000u, max( 500u, avg_delay / 5 ) );
 
+      cerr << "Push encoded frame to queue" << endl;
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
         //   pacer.push( packet.to_string(), inter_send_delay );
-        cerr << "Push encoded frame to queue" << endl;
         queue_.emplace_back( packet.to_string() );
       }
 
@@ -686,7 +683,7 @@ int main( int argc, char *argv[] )
         return ResultType::Continue;
       }
 
-      cerr << "ack_is" << packet.payload << endl;
+      // cerr << "ack_is" << packet.payload << endl;
 
       AckPacket ack( packet.payload );
 
@@ -715,10 +712,10 @@ int main( int argc, char *argv[] )
   /* outgoing packet ready to leave the buffer */
   poller.add_action( Poller::Action( socket, Direction::Out, [&]() {
         /* pop packet from buffer */
-        cerr << "can send frame ? " << endl;
+        cerr << "send frame now " << endl;
         while ( not queue_.empty() ) {
           socket.send( queue_.front() );
-          cerr << "Send frame" << endl;
+          // cerr << "Send frame" << endl;
           queue_.pop_front();
         }
         return ResultType::Continue;
