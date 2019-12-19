@@ -40,6 +40,9 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cmath>
+//logging
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include "exception.hh"
 #include "finally.hh"
@@ -261,6 +264,9 @@ int main( int argc, char *argv[] )
   socket.connect( Address( argv[ optind ], argv[ optind + 1 ] ) );
   cout<<"connceted" <<endl;
   socket.set_timestamps();
+  // send packets with ccp
+  socket.set_congestion_control("ccp");
+  spdlog::debug("Created sender socket with CCP");
   // socket.set_blocking(false);
 
   /* get connection_id */
@@ -282,7 +288,7 @@ int main( int argc, char *argv[] )
   }
 
   /* camera device */
-  Camera camera { 640, 480, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
+  Camera camera { 1280, 720, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
 
   /* construct the encoder */
   Encoder base_encoder { camera.display_width(), camera.display_height(),
@@ -679,8 +685,8 @@ int main( int argc, char *argv[] )
       /* why would this callback be called ?*/
       if (packet.payload == ""){
         cerr << "Warning: " << "recv empty data" << endl;
-        socket.noeof();
-        return ResultType::Continue;
+        // socket.noeof();
+        return ResultType::Cancel;
       }
 
       // cerr << "ack_is" << packet.payload << endl;
