@@ -40,6 +40,8 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cmath>
+#include<spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include "exception.hh"
 #include "finally.hh"
@@ -202,9 +204,9 @@ int main( int argc, char *argv[] )
 
   /* camera settings */
   string camera_device = "/dev/video0";
-  string pixel_format = "NV12";
+  string pixel_format = "YUYV";
   size_t update_rate __attribute__((unused)) = 1;
-  OperationMode operation_mode = OperationMode::S2;
+  OperationMode operation_mode = OperationMode::Conventional;
   bool log_mem_usage = false;
 
   const option command_line_options[] = {
@@ -259,9 +261,10 @@ int main( int argc, char *argv[] )
   /* construct Socket for outgoing datagrams */
   TCPSocket socket;
   socket.connect( Address( argv[ optind ], argv[ optind + 1 ] ) );
-  cout<<"connceted" <<endl;
+  spdlog::info("Socket connnected to {}:{}", argv[ optind ], argv[ optind + 1 ]);
   socket.set_timestamps();
-  // socket.set_blocking(false);
+  socket.set_blocking(false);
+  socket.set_congestion_control("cubic");
 
   /* get connection_id */
   const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );
@@ -342,10 +345,9 @@ int main( int argc, char *argv[] )
   /* fetch frames from webcam */
   poller.add_action( Poller::Action( encode_start_pipe.second, Direction::In,
     [&]() -> Result {
-      cerr << "Fetch frame from webcam" << endl;
       encode_start_pipe.second.read();
-
       last_raster = camera.get_next_frame();
+      spdlog::info("Fetched frames from Webcam, now start encode jobs");
 
       if ( not last_raster.initialized() ) {
         return { ResultType::Exit, EXIT_FAILURE };
@@ -361,7 +363,6 @@ int main( int argc, char *argv[] )
            receiver_last_acked_state.get() != initial_state and
            encoders.count( receiver_last_acked_state.get() ) ) {
         // cleaning up
-        cerr << "Clean Up" << endl;
         auto it = encoder_states.begin();
 
         while ( it != encoder_states.end() ) {
@@ -442,7 +443,7 @@ int main( int argc, char *argv[] )
         }
       }
 
-      cerr << "Decided encoder, hash is " << selected_source_hash << endl;
+      spdlog::info( "Decided encoder, hash is {}", selected_source_hash );
       /* end of encoder selection logic */
       const Encoder & encoder = encoders.at( selected_source_hash );
 
@@ -456,7 +457,7 @@ int main( int argc, char *argv[] )
         };
 
       if ( operation_mode == OperationMode::Conventional ) {
-        cerr << "Mode: Conventional, start configuring encoding jobs" << endl;
+        spdlog::info("Mode: Conventional, start configuring encoding jobs");
         /* is it time to update the quality setting? */
         if ( next_cc_update <= system_clock::now() ) {
           const size_t old_quantizer = cc_quantizer;
@@ -494,7 +495,7 @@ int main( int argc, char *argv[] )
                                   cc_quantizer, 0  );
       }
       else {
-        cerr << "Directly set encoder jobs" << endl;
+        spdlog::info( "Directly set encoder jobs");
         /* try various quantizers */
         encode_jobs.emplace_back( "improve", raster, encoder, CONSTANT_QUANTIZER,
                                   increment_quantizer( last_quantizer, -17 ), 0 );
@@ -532,7 +533,7 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( encode_end_pipe.second, Direction::In,
     [&]()
     {
-      cerr << "all encode job finished !" << endl;
+      spdlog::info("all encode job finished !");
       /* whatever happens, encode_jobs will be empty after this block is done. */
       auto _ = finally(
         [&]()
@@ -623,10 +624,9 @@ int main( int argc, char *argv[] )
       /* send 5x faster than packets are being received */
       const unsigned int __attribute__((unused)) inter_send_delay = min( 2000u, max( 500u, avg_delay / 5 ) );
 
-      cerr << "Push encoded frame to queue" << endl;
+      spdlog::info( "Push encoded frame to send buffer");
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
-        //   pacer.push( packet.to_string(), inter_send_delay );
         queue_.emplace_back( packet.to_string() );
       }
 
@@ -671,19 +671,16 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( socket, Direction::In,
     [&]()
     {
-      cerr << "recv packets" << endl;
+      spdlog::info("recv packets");
 
       // we only need the payload
       auto packet = socket.recv();
 
       /* why would this callback be called ?*/
       if (packet.payload == ""){
-        cerr << "Warning: " << "recv empty data" << endl;
-        socket.noeof();
-        return ResultType::Continue;
+        spdlog::error("Error: Recv empty data. Exit.");
+        return ResultType::Cancel;
       }
-
-      // cerr << "ack_is" << packet.payload << endl;
 
       AckPacket ack( packet.payload );
 
@@ -712,10 +709,9 @@ int main( int argc, char *argv[] )
   /* outgoing packet ready to leave the buffer */
   poller.add_action( Poller::Action( socket, Direction::Out, [&]() {
         /* pop packet from buffer */
-        cerr << "send frame now " << endl;
+        spdlog::info("Send frame now");
         while ( not queue_.empty() ) {
           socket.send( queue_.front() );
-          // cerr << "Send frame" << endl;
           queue_.pop_front();
         }
         return ResultType::Continue;
@@ -726,7 +722,6 @@ int main( int argc, char *argv[] )
   encode_start_pipe.first.write( "1" );
 
   /* handle events */
-  // const int time_out_ms = 3000;
   while ( true ) {
     // when queue
     const auto poll_result = poller.poll(-1);
