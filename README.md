@@ -33,7 +33,19 @@ To build the source, you'll need the following packages:
 * `libglew-dev`
 * `libglfw3-dev`
 
-The rest should be straightforward:
+### install dependencies
+```sh
+$ sudo apt install yasm libxinerama-dev libxcursor-dev libglu1-mesa-dev libboost-all-dev libx264-dev libxrandr-dev libxi-dev libglew-dev libglfw3-dev
+```
+
+### install logging component
+```sh
+$ git clone https://github.com/gabime/spdlog.git
+$ cd spdlog && mkdir build && cd build
+$ cmake .. && make -j && sudo make install
+```
+
+### The rest should be straightforward:
 
 ```
 $ ./autogen.sh
@@ -47,7 +59,14 @@ $ sudo make install
 
 Source code for Salsify sender and reciever programs can be found at [`src/salsify`](https://github.com/excamera/alfalfa/tree/master/src/salsify).
 
-First, run the receiver program:
+First, check the pixal format your camera supports:
+
+```sh
+$ sudo apt install v4l-utils
+$ v4l2-ctl --device /dev/video0 --list-formats
+```
+
+Then, run the receiver program:
 
 ```
 salsify-receiver [PORT] 1280 720
@@ -56,7 +75,7 @@ salsify-receiver [PORT] 1280 720
 Then, run the sender program:
 
 ```
-salsify-sender --device [CAMERA, usually /dev/video0] [HOST] [PORT] 1337
+salsify-tcp-sender --device [CAMERA, usually /dev/video0] --pixfmt YUYV [HOST] [PORT] 1337
 ```
 
 The default pixel format is YUV420. Most webcams support raw YUV420, however the frame rate might be low.
