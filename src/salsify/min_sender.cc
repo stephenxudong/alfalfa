@@ -50,7 +50,7 @@ int main( int argc, char *argv[] )
   // send packets with ccp
   socket.set_congestion_control("bbr");
   spdlog::debug("Created sender socket with CCP");
-  //socket.set_blocking(false);
+  socket.set_blocking(true);
 
   /* get connection_id */
   // const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );
@@ -58,6 +58,9 @@ int main( int argc, char *argv[] )
   Poller poller;
 
   /* new ack from receiver */
+
+  static int input = 0;
+
   poller.add_action( Poller::Action( socket, Direction::In,
     [&]()
     {
@@ -89,7 +92,9 @@ int main( int argc, char *argv[] )
         /* pop packet from buffer */
         spdlog::info("Send frame now");
         while ( not queue_.empty() ) {
-          spdlog::info("Current Packet size: {}", queue_.front().size());
+          // spdlog::info("Current Packet size: {}", queue_.front().size());
+          spdlog::info("POP {} sample, current buffer size is {}", input, queue_.size());
+          input -= 1;
           socket.send( queue_.front() );
           queue_.pop_front();
         }
@@ -108,11 +113,13 @@ int main( int argc, char *argv[] )
       Packet packet = {payload, uint16_t(1337), uint32_t(1), uint32_t(1), uint32_t(round), uint16_t(i), uint16_t(101010), sizet};
       packet.set_fragments_in_this_frame(10);
       /* we don't need pacer since we send the packet with TCP*/
-      spdlog::info( "Push encoded frame to send buffer, times: {}, index: {}", round, i);
+      // spdlog::info( "Push encoded frame to send buffer, times: {}, index: {}", round, i);
+      spdlog::info("PUSH {} sample, current buffer size is {}", input, queue_.size());
+      input += 1;
       queue_.push_back( packet.to_string() );
     }
     round += 1;
-    if (round > 10) return 1;
+    // if (round > 10) return 1;
     // when queue
     const auto poll_result = poller.poll(3000);
     if ( poll_result.result == Poller::Result::Type::Exit ) {

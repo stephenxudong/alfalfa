@@ -288,7 +288,7 @@ int main( int argc, char *argv[] )
   }
 
   /* camera device */
-  Camera camera { 1280, 720, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
+  Camera camera { 640, 480, PIXEL_FORMAT_STRS.at( pixel_format ), camera_device };
 
   /* construct the encoder */
   Encoder base_encoder { camera.display_width(), camera.display_height(),
@@ -627,10 +627,10 @@ int main( int argc, char *argv[] )
       /* send 5x faster than packets are being received */
       const unsigned int __attribute__((unused)) inter_send_delay = min( 2000u, max( 500u, avg_delay / 5 ) );
 
-      spdlog::info( "Push encoded frame to send buffer");
+      // spdlog::info( "Push encoded frame to send buffer");
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
-        spdlog::info( "Push encoded frame to send buffer: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
+        // spdlog::info( "Push encoded frame to send buffer: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
         queue_.push_back( packet.to_string() );
       }
 
@@ -675,7 +675,7 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( socket, Direction::In,
     [&]()
     {
-      spdlog::info("recv packets");
+      // spdlog::info("recv packets");
 
       // we only need the payload
       auto packet = socket.recv();
@@ -714,7 +714,7 @@ int main( int argc, char *argv[] )
   /* outgoing packet ready to leave the buffer */
   poller.add_action( Poller::Action( socket, Direction::Out, [&]() {
         /* pop packet from buffer */
-        spdlog::info("Send frame now");
+        // spdlog::info("Send frame now");
         while ( not queue_.empty() ) {
           // spdlog::info("Current Packet size: {}", queue_.front().size());
           socket.send( queue_.front() );

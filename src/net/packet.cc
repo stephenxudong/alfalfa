@@ -333,5 +333,12 @@ void AckPacket::sendto( UDPSocket & socket, const Address & addr )
 
 void AckPacket::send( TCPSocket & socket )
 {
-  socket.send(to_string() );
+  auto payload = to_string();
+
+  if (to_string().size() < 1422){
+    auto padding_size = 1422 - payload.size();
+    payload = payload + std::string(padding_size, ' ');
+  }
+    
+  socket.send(payload);
 }

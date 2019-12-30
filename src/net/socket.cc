@@ -35,6 +35,8 @@
 #include <ctime>
 #include "exception.hh"
 
+#include <spdlog/spdlog.h>
+
 using namespace std;
 
 /* max name length of congestion control algorithm */
@@ -278,7 +280,7 @@ void TCPSocket::send( const string & payload )
 				payload.data(),
 				payload.size(),
 				0 ) );
-
+  // spdlog::info("Call SEND, bytes send: {}", bytes_sent);
   if ( size_t( bytes_sent ) != payload.size() ) {
     throw runtime_error( "datagram payload too big for send()" );
   }
@@ -289,11 +291,11 @@ void TCPSocket::send( const string & payload )
 /* receive datagram and where it came from */
 TCPSocket::received_datagram TCPSocket::recv( void )
 {
-  static const ssize_t RECEIVE_MTU = 65536;
+  static const ssize_t RECEIVE_MTU = 1422;
 
   // (data, byte_read)
   auto raw_data = read(RECEIVE_MTU);
-
+  // spdlog::info("Call RECV, bytes recved {}", raw_data.size());
   uint64_t time_us = timestamp_us();
 
   received_datagram ret = { time_us, raw_data };

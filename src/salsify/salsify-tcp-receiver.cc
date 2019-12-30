@@ -40,6 +40,8 @@
 #include <future>
 #include <map>
 #include <spdlog/spdlog.h>
+#include <fstream>
+#include <csignal>
 
 #include "socket.hh"
 #include "packet.hh"
@@ -151,16 +153,27 @@ void init_server_socket(TCPSocket& socket, const std::string& congestion_control
   socket.listen(1);
 }
 
+fstream out("delay.txt", ios::out);
+
+void handler(int signum){
+  (void) signum;
+  if(out.is_open())
+    out.close();
+
+  std::cerr<<"Catch SIGINT, exits" << std::endl;
+  exit(0);
+}
+
 int main( int argc, char *argv[] )
 {
   /* check the command-line arguments */
   if ( argc < 1 ) { /* for sticklers */
     abort();
   }
-
+  std::signal(SIGINT, handler);
   /* fullscreen player */
   bool fullscreen = false;
-  bool verbose = false;
+  bool verbose = true;
 
   const option command_line_options[] = {
     { "fullscreen", no_argument, nullptr, 'f' },
@@ -252,12 +265,11 @@ int main( int argc, char *argv[] )
       poller.add_action( Poller::Action( conn.socket, Direction::In,
         [&, conn_id]()
         {
-          cerr << "read frames from sender" << endl;
           /* wait for next TCP message */
           const auto new_fragment = conn.socket.recv();
            /* parse into Packet */
           const Packet packet { new_fragment.payload };
-          spdlog::info("Recved packets, frame num: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
+          // spdlog::info("Recved packets, frame num: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
 
           if ( packet.frame_no() < next_frame_no ) {
             /* we're not interested in this anymore */
@@ -348,7 +360,7 @@ int main( int argc, char *argv[] )
 
           avg_delay.add( new_fragment.timestamp_us, packet.time_since_last() );
 
-           cerr << "send videoACK to sender" << endl;
+          //  cerr << "send videoACK to sender" << endl;
           // explictly inform the sender
           AckPacket( connection_id, packet.frame_no(), packet.fragment_no(),
                     avg_delay.int_value(), current_state,
@@ -357,11 +369,14 @@ int main( int argc, char *argv[] )
           auto now = system_clock::now();
 
           if ( verbose and next_mem_usage_report < now ) {
+            auto current_time = duration_cast<milliseconds>( now.time_since_epoch() ).count();
             cerr << "["
-                << duration_cast<milliseconds>( now.time_since_epoch() ).count()
+                << current_time
                 << "] "
+                << "delay = " << avg_delay.int_value() << " "
                 << " <mem = " << procinfo::memory_usage() << ">\n";
-            next_mem_usage_report = now + 5s;
+            out << current_time << "\t" << avg_delay.int_value() << "\n";
+            next_mem_usage_report = now + 1s;
           }
           return ResultType::Continue;
         })

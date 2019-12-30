@@ -71,6 +71,7 @@ int main( int argc, char *argv[] )
       /* wait for next peer socket */
       auto client = socket.accept();
       cerr << "connceted" <<endl;
+      client.set_blocking(false);
       auto client_addr = client.peer_address();
       cerr << "Peer is " << client_addr.ip() << ":" << client_addr.port() << endl;
 
@@ -81,6 +82,7 @@ int main( int argc, char *argv[] )
       poller.add_action( Poller::Action( conn.socket, Direction::In,
         [&, conn_id]()
         {
+          Connection & conn = connections_.at(conn_id);
           cerr << "read frames from sender" << endl;
           /* wait for next TCP message */
           const auto new_fragment = conn.socket.recv();
