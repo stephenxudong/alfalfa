@@ -39,6 +39,7 @@
 #include <condition_variable>
 #include <future>
 #include <map>
+#include <spdlog/spdlog.h>
 
 #include "socket.hh"
 #include "packet.hh"
@@ -247,7 +248,7 @@ int main( int argc, char *argv[] )
       const uint64_t conn_id = id++;
       connections_.emplace(conn_id, move(client));
       Connection & conn = connections_.at(conn_id);
-       /* we are interested in the clinet socket*/
+       /* we are interested in the client socket*/
       poller.add_action( Poller::Action( conn.socket, Direction::In,
         [&, conn_id]()
         {
@@ -256,6 +257,7 @@ int main( int argc, char *argv[] )
           const auto new_fragment = conn.socket.recv();
            /* parse into Packet */
           const Packet packet { new_fragment.payload };
+          spdlog::info("Recved packets, frame num: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
 
           if ( packet.frame_no() < next_frame_no ) {
             /* we're not interested in this anymore */
@@ -267,7 +269,7 @@ int main( int argc, char *argv[] )
               display it and move on to the next frame */
             cerr << "got a packet for frame #" << packet.frame_no()
                 << ", display previous frame(s)." << endl;
-
+            // return ResultType::Continue;
             for ( size_t i = next_frame_no; i < packet.frame_no(); i++ ) {
               if ( fragmented_frames.count( i ) == 0 ) continue;
 

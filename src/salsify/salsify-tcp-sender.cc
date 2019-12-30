@@ -207,7 +207,7 @@ int main( int argc, char *argv[] )
   string camera_device = "/dev/video0";
   string pixel_format = "YUYV";
   size_t update_rate __attribute__((unused)) = 1;
-  OperationMode operation_mode = OperationMode::Conventional;
+  OperationMode operation_mode = OperationMode::S2;
   bool log_mem_usage = false;
 
   const option command_line_options[] = {
@@ -265,9 +265,9 @@ int main( int argc, char *argv[] )
   spdlog::info("Socket connnected to {}:{}", argv[ optind ], argv[ optind + 1 ]);
   socket.set_timestamps();
   // send packets with ccp
-  socket.set_congestion_control("ccp");
+  socket.set_congestion_control("bbr");
   spdlog::debug("Created sender socket with CCP");
-  // socket.set_blocking(false);
+  //socket.set_blocking(false);
 
   /* get connection_id */
   const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );
@@ -630,7 +630,8 @@ int main( int argc, char *argv[] )
       spdlog::info( "Push encoded frame to send buffer");
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
-        queue_.emplace_back( packet.to_string() );
+        spdlog::info( "Push encoded frame to send buffer: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
+        queue_.push_back( packet.to_string() );
       }
 
       last_sent = system_clock::now();
@@ -715,6 +716,7 @@ int main( int argc, char *argv[] )
         /* pop packet from buffer */
         spdlog::info("Send frame now");
         while ( not queue_.empty() ) {
+          // spdlog::info("Current Packet size: {}", queue_.front().size());
           socket.send( queue_.front() );
           queue_.pop_front();
         }
@@ -728,7 +730,7 @@ int main( int argc, char *argv[] )
   /* handle events */
   while ( true ) {
     // when queue
-    const auto poll_result = poller.poll(-1);
+    const auto poll_result = poller.poll(3000);
     if ( poll_result.result == Poller::Result::Type::Exit ) {
       if ( poll_result.exit_status ) {
         cerr << "Connection error." << endl;
