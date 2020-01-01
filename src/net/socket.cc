@@ -280,7 +280,7 @@ void TCPSocket::send( const string & payload )
 				payload.data(),
 				payload.size(),
 				0 ) );
-  // spdlog::info("Call SEND, bytes send: {}", bytes_sent);
+  spdlog::info("Call SEND, bytes send: {}", bytes_sent);
   if ( size_t( bytes_sent ) != payload.size() ) {
     throw runtime_error( "datagram payload too big for send()" );
   }
@@ -295,7 +295,7 @@ TCPSocket::received_datagram TCPSocket::recv( void )
 
   // (data, byte_read)
   auto raw_data = read(RECEIVE_MTU);
-  // spdlog::info("Call RECV, bytes recved {}", raw_data.size());
+  spdlog::info("Call RECV, bytes recved {}", raw_data.size());
   uint64_t time_us = timestamp_us();
 
   received_datagram ret = { time_us, raw_data };

@@ -265,8 +265,8 @@ int main( int argc, char *argv[] )
   spdlog::info("Socket connnected to {}:{}", argv[ optind ], argv[ optind + 1 ]);
   socket.set_timestamps();
   // send packets with ccp
-  socket.set_congestion_control("bbr");
-  spdlog::debug("Created sender socket with CCP");
+  socket.set_congestion_control(argv[optind + 3]);
+  spdlog::info("Created sender socket with {}", argv[optind + 3]);
   //socket.set_blocking(false);
 
   /* get connection_id */
@@ -350,7 +350,7 @@ int main( int argc, char *argv[] )
     [&]() -> Result {
       encode_start_pipe.second.read();
       last_raster = camera.get_next_frame();
-      spdlog::info("Fetched frames from Webcam, now start encode jobs");
+      // spdlog::info("Fetched frames from Webcam, now start encode jobs");
 
       if ( not last_raster.initialized() ) {
         return { ResultType::Exit, EXIT_FAILURE };
@@ -446,7 +446,7 @@ int main( int argc, char *argv[] )
         }
       }
 
-      spdlog::info( "Decided encoder, hash is {}", selected_source_hash );
+      // spdlog::info( "Decided encoder, hash is {}", selected_source_hash );
       /* end of encoder selection logic */
       const Encoder & encoder = encoders.at( selected_source_hash );
 
@@ -460,7 +460,7 @@ int main( int argc, char *argv[] )
         };
 
       if ( operation_mode == OperationMode::Conventional ) {
-        spdlog::info("Mode: Conventional, start configuring encoding jobs");
+        // spdlog::info("Mode: Conventional, start configuring encoding jobs");
         /* is it time to update the quality setting? */
         if ( next_cc_update <= system_clock::now() ) {
           const size_t old_quantizer = cc_quantizer;
@@ -498,7 +498,7 @@ int main( int argc, char *argv[] )
                                   cc_quantizer, 0  );
       }
       else {
-        spdlog::info( "Directly set encoder jobs");
+        // spdlog::info( "Directly set encoder jobs");
         /* try various quantizers */
         encode_jobs.emplace_back( "improve", raster, encoder, CONSTANT_QUANTIZER,
                                   increment_quantizer( last_quantizer, -17 ), 0 );
@@ -536,7 +536,7 @@ int main( int argc, char *argv[] )
   poller.add_action( Poller::Action( encode_end_pipe.second, Direction::In,
     [&]()
     {
-      spdlog::info("all encode job finished !");
+      // spdlog::info("all encode job finished !");
       /* whatever happens, encode_jobs will be empty after this block is done. */
       auto _ = finally(
         [&]()
