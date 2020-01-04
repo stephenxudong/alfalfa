@@ -289,19 +289,36 @@ void TCPSocket::send( const string & payload )
 }
 
 /* receive datagram and where it came from */
-TCPSocket::received_datagram TCPSocket::recv( void )
+TCPSocket::received_datagram TCPSocket::recv_data( void )
 {
-  static const ssize_t RECEIVE_MTU = 1422;
-
-  // (data, byte_read)
-  auto raw_data = read(RECEIVE_MTU);
-  spdlog::info("Call RECV, bytes recved {}", raw_data.size());
+  // we first recv header, header is 24 bytes.
+  auto header_data = read(24);
+  Header header(header_data);
+  // we then read data
+  auto payload_lenght = header.payload_length_;
+  auto raw_data = read(payload_lenght);
+  // how many bytes we totally read 
+  spdlog::info( "Call RECV, bytes recved {}", raw_data.size() + header_data.size() );
   uint64_t time_us = timestamp_us();
 
-  received_datagram ret = { time_us, raw_data };
+  received_datagram ret = { time_us, header, raw_data };
 
   // register_read();
   return ret;
+}
+
+TCPSocket::received_ackgram TCPSocket::recv_ack( void ){
+  // we fdirectly read the data.
+  auto raw_data = read(1422);
+  // how many bytes we totally read 
+  spdlog::info( "Call RECV, bytes recved {}", raw_data.size() );
+  uint64_t time_us = timestamp_us();
+
+  received_ackgram ret = { time_us, raw_data };
+
+  // register_read();
+  return ret;
+ 
 }
 
 /* turn on timestamps on receipt */

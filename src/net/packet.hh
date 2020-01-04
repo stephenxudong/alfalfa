@@ -37,20 +37,21 @@
 #include "socket.hh"
 #include "exception.hh"
 #include "pacer.hh"
+#include "header.hh"
 
 class Packet
 {
 private:
   bool valid_;
 
-  uint16_t connection_id_;
-  uint32_t source_state_;
-  uint32_t target_state_;
-  uint32_t frame_no_;
-  uint16_t fragment_no_;
-  uint16_t fragments_in_this_frame_;
-  uint32_t time_since_last_; /* microseconds */
-
+  // uint16_t connection_id_;
+  // uint32_t source_state_;
+  // uint32_t target_state_;
+  // uint32_t frame_no_;
+  // uint16_t fragment_no_;
+  // uint16_t fragments_in_this_frame_;
+  // uint32_t time_since_last_; /* microseconds */
+  Header header_;
   std::string payload_;
 
 public:
@@ -62,13 +63,13 @@ public:
 
   /* getters */
   bool valid() const { return valid_; }
-  uint16_t connection_id() const { return connection_id_; }
-  uint32_t source_state() const { return source_state_; }
-  uint32_t target_state() const { return target_state_; }
-  uint32_t frame_no() const { return frame_no_; }
-  uint16_t fragment_no() const { return fragment_no_; }
-  uint16_t fragments_in_this_frame() const { return fragments_in_this_frame_; }
-  uint32_t time_since_last() const { return time_since_last_; }
+  uint16_t connection_id() const { return header_.connection_id_; }
+  uint32_t source_state() const { return header_.source_state_; }
+  uint32_t target_state() const { return header_.target_state_; }
+  uint32_t frame_no() const { return header_.frame_no_; }
+  uint16_t fragment_no() const { return header_.fragment_no_; }
+  uint16_t fragments_in_this_frame() const { return header_.fragments_in_this_frame_; }
+  uint32_t time_since_last() const { return header_.time_since_last_; }
   const std::string & payload() const { return payload_; }
 
   /* construct outgoing Packet */
@@ -82,7 +83,7 @@ public:
           size_t & next_fragment_start );
 
   /* construct incoming Packet */
-  Packet( const Chunk & str );
+  Packet( const Header & headder, const Chunk & str );
 
   /* construct an empty, invalid packet */
   Packet();
@@ -91,7 +92,7 @@ public:
   std::string to_string() const;
 
   void set_fragments_in_this_frame( const uint16_t x );
-  void set_time_to_next( const uint32_t val ) { time_since_last_ = val; }
+  void set_time_to_next( const uint32_t val ) { header_.time_since_last_ = val; }
 };
 
 class FragmentedFrame

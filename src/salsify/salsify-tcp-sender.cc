@@ -678,7 +678,7 @@ int main( int argc, char *argv[] )
       // spdlog::info("recv packets");
 
       // we only need the payload
-      auto packet = socket.recv();
+      auto packet = socket.recv_ack();
 
       /* why would this callback be called ?*/
       if (packet.payload == ""){

@@ -30,6 +30,8 @@
 #include <algorithm>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 #include "packet.hh"
 
 using namespace std;
@@ -63,14 +65,17 @@ Packet::Packet( const vector<uint8_t> & whole_frame,
                 const uint16_t fragment_no,
                 const uint16_t time_since_last,
                 size_t & next_fragment_start )
-  : valid_( true ),
-    connection_id_( connection_id ),
-    source_state_( source_state ),
-    target_state_( target_state ),
-    frame_no_( frame_no ),
-    fragment_no_( fragment_no ),
-    fragments_in_this_frame_( 0 ), /* temp value */
-    time_since_last_( time_since_last ),
+  : valid_( true ), 
+  header_(connection_id, source_state, 
+  target_state, frame_no, fragment_no,
+  time_since_last),
+    // connection_id_( connection_id ),
+    // source_state_( source_state ),
+    // target_state_( target_state ),
+    // frame_no_( frame_no ),
+    // fragment_no_( fragment_no ),
+    // fragments_in_this_frame_( 0 ), /* temp value */
+    // time_since_last_( time_since_last ),
     payload_()
 {
   assert( not whole_frame.empty() );
@@ -86,19 +91,20 @@ Packet::Packet( const vector<uint8_t> & whole_frame,
   next_fragment_start = first_byte + length;
 }
 
-/* construct incoming Packet */
-Packet::Packet( const Chunk & str )
+/* construct incoming Packet from a header and string*/
+Packet::Packet( const Header & header, const Chunk & str )
   : valid_( true ),
-    connection_id_( str( 0, 2 ).le16() ),
-    source_state_( str( 2, 4 ).le32() ),
-    target_state_( str( 6, 4 ).le32() ),
-    frame_no_( str( 10, 4 ).le32() ),
-    fragment_no_( str( 14, 2 ).le16() ),
-    fragments_in_this_frame_( str( 16, 2 ).le16() ),
-    time_since_last_( str( 18, 4 ).le32() ),
+    header_( header ),
+    // connection_id_( str( 0, 2 ).le16() ),
+    // source_state_( str( 2, 4 ).le32() ),
+    // target_state_( str( 6, 4 ).le32() ),
+    // frame_no_( str( 10, 4 ).le32() ),
+    // fragment_no_( str( 14, 2 ).le16() ),
+    // fragments_in_this_frame_( str( 16, 2 ).le16() ),
+    // time_since_last_( str( 18, 4 ).le32() ),
     payload_( str( 22 ).to_string() )
 {
-  if ( fragment_no_ >= fragments_in_this_frame_ ) {
+  if ( header_.fragment_no_ >= header_.fragments_in_this_frame_ ) {
     throw runtime_error( "invalid packet: fragment_no_ >= fragments_in_this_frame" );
   }
 
@@ -110,35 +116,37 @@ Packet::Packet( const Chunk & str )
 /* construct an empty, invalid packet */
 Packet::Packet()
   : valid_( false ),
-    connection_id_(),
-    source_state_(),
-    target_state_(),
-    frame_no_(),
-    fragment_no_(),
-    fragments_in_this_frame_(),
-    time_since_last_(),
+    header_(),
+    // connection_id_(),
+    // source_state_(),
+    // target_state_(),
+    // frame_no_(),
+    // fragment_no_(),
+    // fragments_in_this_frame_(),
+    // time_since_last_(),
     payload_()
 {}
 
 /* serialize a Packet */
 string Packet::to_string() const
 {
-  assert( fragments_in_this_frame_ > 0 );
+  assert( header_.fragments_in_this_frame_ > 0 );
 
-  return put_header_field( connection_id_ )
-       + put_header_field( source_state_ )
-       + put_header_field( target_state_ )
-       + put_header_field( frame_no_ )
-       + put_header_field( fragment_no_ )
-       + put_header_field( fragments_in_this_frame_ )
-       + put_header_field( time_since_last_ )
+  return put_header_field( header_.connection_id_ )
+       + put_header_field( header_.source_state_ )
+       + put_header_field( header_.target_state_ )
+       + put_header_field( header_.frame_no_ )
+       + put_header_field( header_.fragment_no_ )
+       + put_header_field( header_.fragments_in_this_frame_ )
+       + put_header_field( header_.time_since_last_ )
+       + put_header_field( header_.payload_length_ )
        + payload_;
 }
 
 void Packet::set_fragments_in_this_frame( const uint16_t x )
 {
-  fragments_in_this_frame_ = x;
-  assert( fragment_no_ < fragments_in_this_frame_ );
+  header_.fragments_in_this_frame_ = x;
+  assert( header_.fragment_no_ < header_.fragments_in_this_frame_ );
 }
 
 /* construct outgoing FragmentedFrame */
@@ -338,6 +346,8 @@ void AckPacket::send( TCPSocket & socket )
   if (to_string().size() < 1422){
     auto padding_size = 1422 - payload.size();
     payload = payload + std::string(padding_size, ' ');
+    spdlog::info("In ACK packet, actually size is {}, padding size is {}.",
+      payload.length(), padding_size);
   }
     
   socket.send(payload);

@@ -266,9 +266,9 @@ int main( int argc, char *argv[] )
         [&, conn_id]()
         {
           /* wait for next TCP message */
-          const auto new_fragment = conn.socket.recv();
+          const auto new_fragment = conn.socket.recv_data();
            /* parse into Packet */
-          const Packet packet { new_fragment.payload };
+          const Packet packet { new_fragment.header, new_fragment.payload };
           // spdlog::info("Recved packets, frame num: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
 
           if ( packet.frame_no() < next_frame_no ) {

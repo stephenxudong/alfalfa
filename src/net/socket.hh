@@ -33,6 +33,7 @@
 
 #include "address.hh"
 #include "file_descriptor.hh"
+#include "header.hh"
 
 /* class for network sockets (UDP, TCP, etc.) */
 class Socket : public FileDescriptor
@@ -110,6 +111,14 @@ public:
     /* in tcp, we don't care about the peer's address*/
     // Address source_address;
     uint64_t timestamp_us;
+    Header header;
+    std::string payload;
+  };
+
+  struct received_ackgram {
+    /* in tcp, we don't care about the peer's address*/
+    // Address source_address;
+    uint64_t timestamp_us;
     std::string payload;
   };
 
@@ -117,7 +126,9 @@ public:
   void send( const std::string & payload );
 
   /* receive datagram, timestamp, and where it came from */
-  received_datagram recv( void );
+  received_ackgram recv_ack( void );
+
+  received_datagram recv_data( void );
 
   /* mark the socket as listening for incoming connections*/
   void listen( const int backlog = 16);
