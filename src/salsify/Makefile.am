@@ -5,10 +5,10 @@ BASE_LDADD = ../input/libalfalfainput.a ../decoder/libalfalfadecoder.a ../util/l
 
 VP8PLAY_BUILD :=
 if BUILDVP8PLAY
-VP8PLAY_BUILD += salsify-tcp-receiver real-webcam display-jpeg min_receiver
+VP8PLAY_BUILD += salsify-tcp-receiver real-webcam display-jpeg 
 endif
 
-bin_PROGRAMS = salsify-tcp-sender fake-webcam $(VP8PLAY_BUILD) min_sender
+bin_PROGRAMS = salsify-tcp-sender fake-webcam $(VP8PLAY_BUILD)
 
 min_sender_SOURCES = min_sender.cc
 min_sender_LDADD = ../net/libnet.a ../encoder/libalfalfaencoder.a $(BASE_LDADD)
