@@ -304,16 +304,32 @@ void TCPSocket::send( const string & payload )
 TCPSocket::received_datagram TCPSocket::recv_data( void )
 {
   // we first recv header, header is 24 bytes.
-  auto header_data = read(24);
+  static size_t header_length = 24;
+  auto header_data = read( header_length );
+
+  // ensure we have read the whole header
+  while(header_data.size() < header_length){
+    auto append = read( header_length - header_data.size() );
+    header_data += append;
+  }
+
   spdlog::info( "Call RECV, header recved {}", header_data.size() );
   Header header(header_data);
-  // we then read data
-  auto payload_lenght = header.payload_length_;
-  spdlog::info( "In RECV, payload length in this packet is {}", payload_lenght );
-  auto raw_data = read(payload_lenght);
+
+  // ensure we read all data
+  auto payload_length = header.payload_length_;
+  spdlog::info( "In RECV, payload length in this packet is {}", payload_length );
+  auto raw_data = read(payload_length);
+
+  // wait for all data
+  while(raw_data.size() < payload_length){
+    auto append = read( payload_length - raw_data.size() );
+    raw_data += append;
+  }
+
   // how many bytes we totally read 
   spdlog::info( "Call RECV, data recved {}, total bytes in this packet is {}", 
-      raw_data.size(), 24 + raw_data.size() );
+      raw_data.size(), header_data.size() + raw_data.size() );
   uint64_t time_us = timestamp_us();
 
   received_datagram ret = { time_us, header, raw_data };
