@@ -29,6 +29,7 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <cstdio>
 
 #include <spdlog/spdlog.h>
 
@@ -88,6 +89,19 @@ Packet::Packet( const vector<uint8_t> & whole_frame,
 
   payload_ = string( reinterpret_cast<const char*>( &whole_frame.at( first_byte ) ), length );
 
+  header_.set_payload_length(length);
+
+  // spdlog::info("Create packet with payload length is {}, ", length);
+
+  // spdlog::info("connection id {}, source state {}, target_state {}, frame_no {}, fragement_number {}, fragements in this frame {}, time since last {}",
+  //   header_.connection_id_, header_.source_state_, header_.target_state_, header_.fragment_no_, header_.fragment_no_,
+  //   header_.fragments_in_this_frame_, header_.time_since_last_
+  // );
+  // printf("Payload is: ");
+  // for (char& c : payload_)
+  //   printf("%x", c);
+  // printf("\n");
+
   next_fragment_start = first_byte + length;
 }
 
@@ -102,11 +116,22 @@ Packet::Packet( const Header & header, const Chunk & str )
     // fragment_no_( str( 14, 2 ).le16() ),
     // fragments_in_this_frame_( str( 16, 2 ).le16() ),
     // time_since_last_( str( 18, 4 ).le32() ),
-    payload_( str( 22 ).to_string() )
+    payload_( str.to_string() )
 {
   if ( header_.fragment_no_ >= header_.fragments_in_this_frame_ ) {
     throw runtime_error( "invalid packet: fragment_no_ >= fragments_in_this_frame" );
   }
+  // spdlog::info("payload length is this packet is {}", payload_.size() );
+
+  // spdlog::info("connection id {}, source state {}, target_state {}, frame_no {}, fragement_number {}, fragements in this frame {}, time since last {}",
+  //   header_.connection_id_, header_.source_state_, header_.target_state_, header_.fragment_no_, header_.fragment_no_,
+  //   header_.fragments_in_this_frame_, header_.time_since_last_
+  // );
+
+  // printf("Payload is: ");
+  // for (char& c : payload_)
+  //   printf("%x", c);
+  // printf("\n");
 
   if ( payload_.empty() ) {
     throw runtime_error( "invalid packet: empty payload" );

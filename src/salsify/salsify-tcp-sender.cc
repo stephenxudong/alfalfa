@@ -267,7 +267,7 @@ int main( int argc, char *argv[] )
   // send packets with ccp
   socket.set_congestion_control(argv[optind + 3]);
   spdlog::info("Created sender socket with {}", argv[optind + 3]);
-  //socket.set_blocking(false);
+  socket.set_blocking(false);
 
   /* get connection_id */
   const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );
@@ -630,7 +630,7 @@ int main( int argc, char *argv[] )
       // spdlog::info( "Push encoded frame to send buffer");
       for ( const auto & packet : ff.packets() ) {
         /* we don't need pacer since we send the packet with TCP*/
-        // spdlog::info( "Push encoded frame to send buffer: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
+        spdlog::info( "Push encoded frame to send buffer: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
         queue_.push_back( packet.to_string() );
       }
 

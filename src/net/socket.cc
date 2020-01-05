@@ -293,12 +293,15 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
 {
   // we first recv header, header is 24 bytes.
   auto header_data = read(24);
+  spdlog::info( "Call RECV, header recved {}", header_data.size() );
   Header header(header_data);
   // we then read data
   auto payload_lenght = header.payload_length_;
+  spdlog::info( "In RECV, payload length in this packet is {}", payload_lenght );
   auto raw_data = read(payload_lenght);
   // how many bytes we totally read 
-  spdlog::info( "Call RECV, bytes recved {}", raw_data.size() + header_data.size() );
+  spdlog::info( "Call RECV, data recved {}, total bytes in this packet is {}", 
+      raw_data.size(), 24 + raw_data.size() );
   uint64_t time_us = timestamp_us();
 
   received_datagram ret = { time_us, header, raw_data };
@@ -308,8 +311,9 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
 }
 
 TCPSocket::received_ackgram TCPSocket::recv_ack( void ){
+  static size_t size_of_ack = 1422;
   // we fdirectly read the data.
-  auto raw_data = read(1422);
+  auto raw_data = read(size_of_ack);
   // how many bytes we totally read 
   spdlog::info( "Call RECV, bytes recved {}", raw_data.size() );
   uint64_t time_us = timestamp_us();
