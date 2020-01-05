@@ -254,6 +254,7 @@ int main( int argc, char *argv[] )
     {
       /* wait for next peer socket */
       auto client = socket.accept();
+      client.set_no_delay();
       cerr << "connceted" <<endl;
       auto client_addr = client.peer_address();
       cerr << "Peer is " << client_addr.ip() << ":" << client_addr.port() << endl;

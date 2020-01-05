@@ -265,6 +265,18 @@ void TCPSocket::set_congestion_control( const string & cc )
     }
 }
 
+void TCPSocket::set_no_delay( void )
+{
+    int optval = 1;
+    try {
+      setsockopt( IPPROTO_TCP, TCP_NODELAY, optval );
+    } catch (const exception & e) {
+      /* rethrow the exception with better error messages */
+      print_exception("set_tcp_no_delay", e);
+      throw runtime_error("unable to set tcp_no_delay.");
+    }
+}
+
 string TCPSocket::get_congestion_control() const
 {
     char optval[ TCP_CC_NAME_MAX ];
@@ -311,7 +323,7 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
 }
 
 TCPSocket::received_ackgram TCPSocket::recv_ack( void ){
-  static size_t size_of_ack = 1422;
+  static size_t size_of_ack = 200;
   // we fdirectly read the data.
   auto raw_data = read(size_of_ack);
   // how many bytes we totally read 

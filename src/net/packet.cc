@@ -366,10 +366,11 @@ void AckPacket::sendto( UDPSocket & socket, const Address & addr )
 
 void AckPacket::send( TCPSocket & socket )
 {
+  static size_t ack_packet_size = 200;
   auto payload = to_string();
 
-  if (to_string().size() < 1422){
-    auto padding_size = 1422 - payload.size();
+  if (to_string().size() < ack_packet_size){
+    auto padding_size = ack_packet_size - payload.size();
     payload = payload + std::string(padding_size, ' ');
     spdlog::info("In ACK packet, actually size is {}, padding size is {}.",
       payload.length(), padding_size);

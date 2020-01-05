@@ -143,6 +143,9 @@ public:
 
   std::string get_congestion_control() const;
 
+  /* send packet immediately */
+  void set_no_delay( void );
+
   /* turn on timestamps on receipt */
   void set_timestamps( void );
 
