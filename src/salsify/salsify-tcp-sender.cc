@@ -267,7 +267,8 @@ int main( int argc, char *argv[] )
   // send packets with ccp
   socket.set_congestion_control(argv[optind + 3]);
   spdlog::info("Created sender socket with {}", argv[optind + 3]);
-  socket.set_blocking(false);
+  // socket.set_blocking(false);
+  socket.set_no_delay();
 
   /* get connection_id */
   const uint16_t connection_id = paranoid::stoul( argv[ optind + 2 ] );

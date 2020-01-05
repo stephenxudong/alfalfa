@@ -325,9 +325,14 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
 TCPSocket::received_ackgram TCPSocket::recv_ack( void ){
   static size_t size_of_ack = 200;
   // we fdirectly read the data.
-  auto raw_data = read(size_of_ack);
+  auto raw_data = read( size_of_ack );
   // how many bytes we totally read 
   spdlog::info( "Call RECV, bytes recved {}", raw_data.size() );
+
+  while (raw_data.size() < size_of_ack){
+    auto append = read( size_of_ack - raw_data.size() );
+    raw_data += append;
+  }
   uint64_t time_us = timestamp_us();
 
   received_ackgram ret = { time_us, raw_data };
