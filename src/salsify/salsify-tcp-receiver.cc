@@ -270,7 +270,9 @@ int main( int argc, char *argv[] )
           const auto new_fragment = conn.socket.recv_data();
            /* parse into Packet */
           const Packet packet { new_fragment.header, new_fragment.payload };
+#ifdef LOG
           spdlog::info("Recved packets, frame num: {}, segment num: {}", packet.frame_no(), packet.fragment_no());
+#endif
 
           if ( packet.frame_no() < next_frame_no ) {
             /* we're not interested in this anymore */

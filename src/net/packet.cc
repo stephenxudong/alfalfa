@@ -372,8 +372,10 @@ void AckPacket::send( TCPSocket & socket )
   if (to_string().size() < ack_packet_size){
     auto padding_size = ack_packet_size - payload.size();
     payload = payload + std::string(padding_size, ' ');
+    #ifdef LOG
     spdlog::info("In ACK packet, actually size is {}, padding size is {}.",
       payload.length(), padding_size);
+    #endif
   }
     
   socket.send(payload);

@@ -292,7 +292,9 @@ void TCPSocket::send( const string & payload )
 				payload.data(),
 				payload.size(),
 				0 ) );
+  #ifdef LOG
   spdlog::info("Call SEND, bytes send: {}", bytes_sent);
+  #endif
   if ( size_t( bytes_sent ) != payload.size() ) {
     throw runtime_error( "datagram payload too big for send()" );
   }
@@ -312,13 +314,15 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
     auto append = read( header_length - header_data.size() );
     header_data += append;
   }
-
+  #ifdef LOG
   spdlog::info( "Call RECV, header recved {}", header_data.size() );
+  #endif
+
   Header header(header_data);
 
   // ensure we read all data
   auto payload_length = header.payload_length_;
-  spdlog::info( "In RECV, payload length in this packet is {}", payload_length );
+  // spdlog::info( "In RECV, payload length in this packet is {}", payload_length );
   auto raw_data = read(payload_length);
 
   // wait for all data
@@ -328,8 +332,11 @@ TCPSocket::received_datagram TCPSocket::recv_data( void )
   }
 
   // how many bytes we totally read 
+  #ifdef LOG
   spdlog::info( "Call RECV, data recved {}, total bytes in this packet is {}", 
       raw_data.size(), header_data.size() + raw_data.size() );
+  #endif
+
   uint64_t time_us = timestamp_us();
 
   received_datagram ret = { time_us, header, raw_data };
@@ -343,7 +350,9 @@ TCPSocket::received_ackgram TCPSocket::recv_ack( void ){
   // we fdirectly read the data.
   auto raw_data = read( size_of_ack );
   // how many bytes we totally read 
+  #ifdef LOG
   spdlog::info( "Call RECV, bytes recved {}", raw_data.size() );
+  #endif
 
   while (raw_data.size() < size_of_ack){
     auto append = read( size_of_ack - raw_data.size() );
